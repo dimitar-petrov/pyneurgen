@@ -1,0 +1,79 @@
+--- /home/dpetrov/develop/python/pyneurgen/pyneurgen/grammatical_evolution.py	2017-04-04 13:17:23.329717680 +0300
++++ grammatical_evolution.py	2017-04-05 13:32:51.583471033 +0300
+@@ -38,6 +38,7 @@
+ from copy import deepcopy
+ import logging
+ from random import randint
++import pathos.multiprocessing as mp
+ 
+ from pyneurgen.genotypes import Genotype, MUT_TYPE_M, MUT_TYPE_S
+ from pyneurgen.fitness import FitnessList, Fitness, Replacement
+@@ -122,6 +123,7 @@
+         self.population = []
+ 
+         self._history = []
++        self.runfits = list()
+ 
+     def set_population_size(self, size):
+         """
+@@ -675,6 +677,37 @@
+ 
+         return self._timeouts
+ 
++    def _calc_fitness(self, gene):
++        """
++        This function runs the process of computing fitness functions for each
++        genotype and calculating the fitness function.
++
++        """
++
++        starttime = datetime.now()
++        gene._generation = self._generation
++        logging.debug("Starting member G %s: %s at %s" % (
++            self._generation, gene.member_no,
++            starttime.strftime('%m/%d/%y %H:%M')))
++
++        gene.starttime = starttime
++        self.current_g = gene
++        gene.compute_fitness()
++
++        logging.debug("fitness=%s" % (gene.get_fitness()))
++        self.fitness_list[gene.member_no][0] = gene.get_fitness()
++
++    def _calc_fitnesses(self):
++        """
++        This function runs the process of computing fitness functions for each
++        genotype and calculating the fitness function.
++
++        """
++
++        pool = mp.ProcessPool(4)
++        pool.map(self._calc_fitness, self.population)
++
++
+     def _compute_fitness(self):
+         """
+         This function runs the process of computing fitness functions for each
+@@ -710,7 +743,7 @@
+         logging.info("started run")
+         self._generation = starting_generation
+         while True:
+-            self._compute_fitness()
++            self._calc_fitnesses()
+             if self._maintain_history:
+                 self._history.append(deepcopy(self.fitness_list))
+ 
+@@ -727,8 +760,11 @@
+                             "mean: %s" % (self.fitness_list.mean())]))
+                 #temp -- remove this
+                 gene = self.population[self.fitness_list.best_member()]
+-                program = gene.get_program()
+-                logging.info(program)
++                try:
++                    program = gene.get_program()
++                    logging.info(program)
++                except:
++                    logging.info('program too long')
+ 
+                 #logging.debug("stddev= %s" % self.fitness_list.stddev())
+                 self._generation += 1
