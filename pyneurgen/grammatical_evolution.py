@@ -706,7 +706,7 @@ class GrammaticalEvolution(object):
 
         pool = mp.ProcessPool(4)
         pool.map(self._calc_fitness, self.population)
-
+        pool.clear()
 
     def _compute_fitness(self):
         """
