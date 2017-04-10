@@ -688,7 +688,10 @@ class FitnessElites(Fitness):
         Fitness.__init__(self, fitness_list)
         self._rate = None
         self.set_rate(rate)
-        self.set_selection_type(MIN)
+        # TODO: Understand why that is set to MIN here
+        # Developer decided to calc 1/Value to get max element in ascending sort order
+        # ! Unfortunately that is not working when the set consists of negatives and positives
+        # self.set_selection_type(MIN)
 
     def set_rate(self, rate):
         """
@@ -711,9 +714,12 @@ class FitnessElites(Fitness):
 
         """
 
-        self._scale_list()
+        reverse_sort = (self._fitness_list.get_fitness_type() == MAX)
+
+        # Explained the issue in constructor
+        # self._scale_list()
         sort_list = self._make_sort_list()
-        sort_list.sort()
+        sort_list.sort(reverse=reverse_sort)
         elites = int(round(self._rate * float(len(sort_list))))
         for item in sort_list[:elites]:
             yield item[1]

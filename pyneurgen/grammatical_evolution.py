@@ -42,7 +42,7 @@ from random import randint
 from pyneurgen.genotypes import Genotype, MUT_TYPE_M, MUT_TYPE_S
 from pyneurgen.fitness import FitnessList, Fitness, Replacement
 from pyneurgen.fitness import CENTER, MAX, MIN
-
+import multiprocessing
 
 #   Constants
 STATEMENT_FORMAT = '<S'
@@ -63,12 +63,13 @@ DEFAULT_MAX_PROGRAM_LENGTH = None
 DEFAULT_FITNESS_FAIL = -1000.0
 DEFAULT_MAINTAIN_HISTORY = True
 DEFAULT_TIMEOUTS = [20, 3600]
+USE_PARALLELIZAION = True
 
 DEFAULT_LOG_FILE = 'pyneurgen.log'
 
 logging.basicConfig(format='%(asctime)s %(message)s',
                     filename=DEFAULT_LOG_FILE,
-                    level=logging.INFO)
+                    level=logging.DEBUG)
 
 
 class GrammaticalEvolution(object):
@@ -122,6 +123,29 @@ class GrammaticalEvolution(object):
         self.population = []
 
         self._history = []
+
+        self.parallel = USE_PARALLELIZAION
+
+    def __call__(self, itergene):
+        """
+        Used during fitness calculation to pass the GE over the
+        multiprocessing module without complains
+        """
+
+        return self.calc_fitness(itergene)
+
+    # This method might not be needed, probably it is specific for backtrader flow
+    # Might come handy if memory footprint has to be kept smaller
+    # def __getstate__(self):
+    #     """
+    #     Used during fitness calculation to prevent fitness result
+    #     gene from being pickled to subprocesses
+    #     """
+
+    #     rv = vars(self).copy()
+    #     if 'gene' in rv:
+    #         del(rv['gene'])
+    #     return rv
 
     def set_population_size(self, size):
         """
@@ -298,6 +322,17 @@ class GrammaticalEvolution(object):
         """
 
         return self.bnf
+
+    def set_parallel(self, true_false):
+        """
+        This function sets a flag whether to use parallelization
+        with maximum available cores.
+
+        """
+        if isinstance(true_false, bool):
+            self.parallel = true_false
+        else:
+            raise ValueError("Maintain history must be True or False")
 
     def set_maintain_history(self, true_false):
         """
@@ -675,6 +710,37 @@ class GrammaticalEvolution(object):
 
         return self._timeouts
 
+    def calc_fitness(self, gene):
+        """
+        This method is calculating fitness factor of single gene in case of
+        parallel execution with multiprocessing module
+        """
+
+        starttime = datetime.now()
+        gene._generation = self._generation
+        logging.debug("Starting member G %s: %s at %s" % (
+            self._generation, gene.member_no,
+            starttime.strftime('%m/%d/%y %H:%M')))
+        gene.starttime = starttime
+        gene.compute_fitness()
+
+        logging.debug("fitness=%s" % (gene.get_fitness()))
+        logging.debug("program:\n%s" % (gene.get_program()))
+        return gene
+
+    def calc_fitnesses(self):
+        """
+        This method is taking care of parallel pool creation in case of
+        parallel execution with multiprocessing module
+        """
+
+        pool = multiprocessing.Pool(4)
+        for r in pool.imap(self, self.population):
+            self.population[r.member_no] = r
+            self.fitness_list[r.member_no][0] = r.get_fitness()
+
+        pool.close()
+
     def _compute_fitness(self):
         """
         This function runs the process of computing fitness functions for each
@@ -697,6 +763,7 @@ class GrammaticalEvolution(object):
             gene.compute_fitness()
 
             logging.debug("fitness=%s" % (gene.get_fitness()))
+            logging.debug("program:\n%s" % (gene.get_program()))
             self.fitness_list[gene.member_no][0] = gene.get_fitness()
 
     def run(self, starting_generation=0):
@@ -710,7 +777,10 @@ class GrammaticalEvolution(object):
         logging.info("started run")
         self._generation = starting_generation
         while True:
-            self._compute_fitness()
+            if self.parallel:
+                self.calc_fitnesses()
+            else:
+                self._compute_fitness()
             if self._maintain_history:
                 self._history.append(deepcopy(self.fitness_list))
 
@@ -730,7 +800,7 @@ class GrammaticalEvolution(object):
                 program = gene.get_program()
                 logging.info(program)
 
-                #logging.debug("stddev= %s" % self.fitness_list.stddev())
+                logging.debug("stddev= %s" % self.fitness_list.stddev())
                 self._generation += 1
             else:
                 break
