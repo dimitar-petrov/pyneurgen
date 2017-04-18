@@ -65,13 +65,6 @@ DEFAULT_MAINTAIN_HISTORY = True
 DEFAULT_TIMEOUTS = [20, 3600]
 USE_PARALLELIZAION = True
 
-DEFAULT_LOG_FILE = 'pyneurgen.log'
-
-logging.basicConfig(format='%(asctime)s %(message)s',
-                    filename=DEFAULT_LOG_FILE,
-                    level=logging.DEBUG)
-
-
 class GrammaticalEvolution(object):
     """
     This class comprises the overall process of generating genotypes,
@@ -734,7 +727,7 @@ class GrammaticalEvolution(object):
         parallel execution with multiprocessing module
         """
 
-        pool = multiprocessing.Pool(4)
+        pool = multiprocessing.Pool()
         for r in pool.imap(self, self.population):
             self.population[r.member_no] = r
             self.fitness_list[r.member_no][0] = r.get_fitness()

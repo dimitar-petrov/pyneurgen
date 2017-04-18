@@ -40,13 +40,6 @@ BNF_PROGRAM = 'program'
 TIMEOUT_PROG_BUILD = 0
 TIMEOUT_PROG_EXECUTE = 1
 
-DEFAULT_LOG_FILE = 'pyneurgen.log'
-DEFAULT_LOG_LEVEL = logging.DEBUG
-
-logging.basicConfig(format='%(asctime)s %(message)s',
-                    filename=DEFAULT_LOG_FILE,
-                    level=DEFAULT_LOG_LEVEL)
-
 
 class Genotype(object):
     """
